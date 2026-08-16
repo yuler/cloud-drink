@@ -1068,7 +1068,10 @@ before(async () => {
   port = srv.httpServer.address().port;
 });
 
-after(() => new Promise((r) => srv.httpServer.close(r)));
+after(async () => {
+  srv.close();
+  await new Promise((r) => srv.httpServer.close(r));
+});
 
 function connect() {
   return io(`http://localhost:${port}`, { transports: ['websocket'], forceNew: true });
@@ -1543,11 +1546,19 @@ function createGameServer() {
 
   attachSocketHandlers(io, rooms);
 
-  setInterval(() => {
+  const timer = setInterval(() => {
     for (const room of rooms.cleanup()) broadcastRoom(io, room);
   }, 5000);
 
-  return { app, httpServer, io, rooms };
+  return {
+    app,
+    httpServer,
+    io,
+    rooms,
+    close() {
+      clearInterval(timer);
+    },
+  };
 }
 
 module.exports = { createGameServer };
@@ -2385,7 +2396,13 @@ socket.on('error', (msg) => showToast(msg || '出错了', true));
 // ---------- room render ----------
 
 function syncSeats() {
-  for (let i = 0; i < 6; i++) scene.removePlayer(i);
+  const present = new Set();
+  if (room) {
+    for (const p of room.players) present.add(p.seat);
+  }
+  for (let i = 0; i < 6; i++) {
+    if (!present.has(i)) scene.removePlayer(i);
+  }
   if (room) {
     for (const p of room.players) scene.addPlayer(p.seat, { characterId: p.characterId });
   }
