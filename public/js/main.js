@@ -46,8 +46,8 @@ function saveRoom(roomId) {
 }
 
 function goToTable(roomId, ok) {
-  if (!ok) {
-    showError(ok.error);
+  if (!ok || !ok.ok) {
+    showError(ok && ok.error);
     return;
   }
   saveRoom(roomId);
