@@ -91,6 +91,18 @@ test('rejoin rejects unknown player', () => {
   assert.throws(() => rooms.rejoin({ roomId: room.id, playerId: 'nobody' }), { code: 'PLAYER_NOT_FOUND' });
 });
 
+test('cleanup transfers owner when the owner goes offline and expires', () => {
+  const rooms = new RoomManager();
+  const { room } = rooms.createRoom({ playerId: 'p1', nickname: 'A', characterId: 'fox' });
+  rooms.joinRoom({ roomId: room.id, playerId: 'p2', nickname: 'B', characterId: 'cat' });
+  rooms.markOffline({ roomId: room.id, playerId: 'p1' });
+  room.players[0].disconnectedAt = Date.now() - 60000;
+  rooms.cleanup({ now: Date.now(), offlineTimeoutMs: 30000 });
+  assert.equal(room.players.length, 1);
+  assert.equal(room.ownerId, 'p2');
+  assert.equal(room.players[0].isOwner, true);
+});
+
 test('cleanup removes long-offline players and empty rooms', () => {
   const rooms = new RoomManager();
   const { room } = rooms.createRoom({ playerId: 'p1', nickname: 'A', characterId: 'fox' });

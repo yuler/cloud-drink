@@ -123,11 +123,14 @@ class RoomManager {
       const removed = room.players.filter((p) => !p.isOnline && now - p.disconnectedAt > offlineTimeoutMs);
       for (const p of removed) this.playerRoom.delete(p.id);
       room.players = room.players.filter((p) => p.isOnline || now - p.disconnectedAt <= offlineTimeoutMs);
-      this._renumber(room);
       if (room.players.length === 0) {
         this.rooms.delete(roomId);
         continue;
       }
+      if (removed.some((p) => p.id === room.ownerId)) {
+        room.ownerId = room.players[0].id;
+      }
+      this._renumber(room);
       if (room.gameInstance) {
         room.game = null;
         room.gameInstance = null;
