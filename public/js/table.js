@@ -145,14 +145,18 @@ function renderGame() {
   else renderTruth();
 
   const loserId = gameState.loserId || null;
-  if (loserId && loserId !== lastRoundLoser) {
-    const seat = seatOf(loserId);
-    if (seat !== -1) {
-      scene.playDrink(seat);
-      sfx.playGulp();
-      showDrinkOverlay();
+  if (loserId) {
+    if (loserId !== lastRoundLoser) {
+      const seat = seatOf(loserId);
+      if (seat !== -1) {
+        scene.playDrink(seat);
+        sfx.playGulp();
+        showDrinkOverlay();
+      }
+      lastRoundLoser = loserId;
     }
-    lastRoundLoser = loserId;
+  } else {
+    lastRoundLoser = null;
   }
 
   renderOwnerGameControls();
