@@ -11,6 +11,7 @@ const scene = new TableScene(document.getElementById('scene'));
 let room = null;
 let gameState = null;
 let lastRoundLoser = null;
+let prevGamePhase = null;
 
 const el = {
   code: document.getElementById('room-code-label'),
@@ -143,6 +144,11 @@ function renderGame() {
 
   for (const p of room.players) scene.setDrunkLevel(p.seat, p.drinkCount);
 
+  if (gameState.phase === 'betting' && prevGamePhase !== 'betting') {
+    for (let i = 0; i < 6; i++) scene.removeDice(i);
+  }
+  prevGamePhase = gameState.phase;
+
   if (gameState.game === 'liar') renderLiar();
   else renderTruth();
 
@@ -194,7 +200,6 @@ function renderLiar() {
   c.appendChild(bidsDiv);
 
   if (gameState.phase === 'betting') {
-    for (let i = 0; i < 6; i++) scene.removeDice(i);
     const myTurn = gameState.turnPlayerId === playerId;
     const turnDiv = document.createElement('div');
     turnDiv.className = 'turn-hint';

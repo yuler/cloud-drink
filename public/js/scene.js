@@ -234,10 +234,12 @@ export class TableScene {
     if (g) {
       g.traverse((obj) => {
         if (obj.geometry) obj.geometry.dispose();
-        const mats = Array.isArray(obj.material) ? obj.material : [obj.material];
-        for (const m of mats) {
-          if (m.map) m.map.dispose();
-          m.dispose();
+        if (obj.material) {
+          const mats = Array.isArray(obj.material) ? obj.material : [obj.material];
+          for (const m of mats) {
+            if (m.map) m.map.dispose();
+            m.dispose();
+          }
         }
       });
       this.scene.remove(g);

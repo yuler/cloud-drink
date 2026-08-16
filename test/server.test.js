@@ -280,13 +280,13 @@ test('non-current player cannot impersonate current player on liar:call', async 
     assert.equal(lastA.turnPlayerId, 'paC1');
 
     const err = await new Promise((resolve) =>
-      b.emit('liar:call', { bid: { quantity: 3, face: 4 } }, resolve)
+      b.emit('liar:call', { bid: { quantity: 3, face: 4 }, playerId: 'paC1' }, resolve)
     );
     assert.equal(err.ok, false);
     assert.equal(err.error, '还没轮到你叫数');
 
     const callRes = await new Promise((resolve) =>
-      a.emit('liar:call', { bid: { quantity: 3, face: 4 } }, resolve)
+      a.emit('liar:call', { bid: { quantity: 3, face: 4 }, playerId: 'paC1' }, resolve)
     );
     assert.equal(callRes.ok, true);
     await new Promise((r) => setTimeout(r, 50));
@@ -308,12 +308,12 @@ test('non-owner cannot start a game with owner impersonation', async () => {
       b.emit('room:join', { roomId: createRes.roomId, playerId: 'pbC2', nickname: '小红', characterId: 'cat' }, resolve)
     );
     const err = await new Promise((resolve) =>
-      b.emit('game:start', { game: 'liar' }, resolve)
+      b.emit('game:start', { game: 'liar', playerId: 'paC2' }, resolve)
     );
     assert.equal(err.ok, false);
     assert.equal(err.error, '只有房主可以开始');
     const ok = await new Promise((resolve) =>
-      a.emit('game:start', { game: 'liar' }, resolve)
+      a.emit('game:start', { game: 'liar', playerId: 'paC2' }, resolve)
     );
     assert.equal(ok.ok, true);
   } finally {
