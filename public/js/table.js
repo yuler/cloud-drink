@@ -117,6 +117,7 @@ function renderRoom() {
   el.code.textContent = `房号 ${room.id}`;
   document.title = `云喝酒 · ${room.id}`;
   syncSeats();
+  for (const p of room.players) scene.setDrunkLevel(p.seat, p.drinkCount);
 
   el.playerList.innerHTML = '';
   for (const p of room.players) {
@@ -128,6 +129,7 @@ function renderRoom() {
 
   el.ownerControls.classList.toggle('hidden', !isOwner() || !!room.game);
   el.lobbyPanel.classList.toggle('hidden', !!room.game);
+  el.gamePanel.classList.toggle('hidden', !room.game);
   el.ownerGameControls.classList.toggle('hidden', !isOwner() || !room.game);
 }
 
@@ -192,6 +194,7 @@ function renderLiar() {
   c.appendChild(bidsDiv);
 
   if (gameState.phase === 'betting') {
+    for (let i = 0; i < 6; i++) scene.removeDice(i);
     const myTurn = gameState.turnPlayerId === playerId;
     const turnDiv = document.createElement('div');
     turnDiv.className = 'turn-hint';

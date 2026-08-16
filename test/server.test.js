@@ -196,12 +196,13 @@ test('truth game full flow increments loser drinkCount', async () => {
     assert.equal(startRes.ok, true);
     const state = await gs;
     const target = state.targetId;
+    const targetSocket = target === 'pa6' ? a : b;
 
     const chooseRes = await new Promise((resolve) =>
-      a.emit('truth:choose', { type: 'truth', playerId: target }, resolve)
+      targetSocket.emit('truth:choose', { type: 'truth' }, resolve)
     );
     assert.equal(chooseRes.ok, true);
-    const doneRes = await new Promise((resolve) => a.emit('truth:done', { playerId: target }, resolve));
+    const doneRes = await new Promise((resolve) => targetSocket.emit('truth:done', {}, resolve));
     assert.equal(doneRes.ok, true);
 
     await new Promise((r) => setTimeout(r, 100));
@@ -255,5 +256,119 @@ test('game switch returns to lobby for owner', async () => {
   } finally {
     a.close();
     b.close();
+  }
+});
+
+test('non-current player cannot impersonate current player on liar:call', async () => {
+  const a = connect();
+  const b = connect();
+  try {
+    let lastA = null;
+    a.on('game:state', (s) => { lastA = s; });
+    const gsA = waitForEvent(a, 'game:state');
+    const createRes = await new Promise((resolve) =>
+      a.emit('room:create', { playerId: 'paC1', nickname: '阿明', characterId: 'fox' }, resolve)
+    );
+    await new Promise((resolve) =>
+      b.emit('room:join', { roomId: createRes.roomId, playerId: 'pbC1', nickname: '小红', characterId: 'cat' }, resolve)
+    );
+    const startRes = await new Promise((resolve) =>
+      a.emit('game:start', { game: 'liar', playerId: 'paC1' }, resolve)
+    );
+    assert.equal(startRes.ok, true);
+    await gsA;
+    assert.equal(lastA.turnPlayerId, 'paC1');
+
+    const err = await new Promise((resolve) =>
+      b.emit('liar:call', { bid: { quantity: 3, face: 4 } }, resolve)
+    );
+    assert.equal(err.ok, false);
+    assert.equal(err.error, '还没轮到你叫数');
+
+    const callRes = await new Promise((resolve) =>
+      a.emit('liar:call', { bid: { quantity: 3, face: 4 } }, resolve)
+    );
+    assert.equal(callRes.ok, true);
+    await new Promise((r) => setTimeout(r, 50));
+    assert.equal(lastA.turnPlayerId, 'pbC1');
+  } finally {
+    a.close();
+    b.close();
+  }
+});
+
+test('non-owner cannot start a game with owner impersonation', async () => {
+  const a = connect();
+  const b = connect();
+  try {
+    const createRes = await new Promise((resolve) =>
+      a.emit('room:create', { playerId: 'paC2', nickname: '阿明', characterId: 'fox' }, resolve)
+    );
+    await new Promise((resolve) =>
+      b.emit('room:join', { roomId: createRes.roomId, playerId: 'pbC2', nickname: '小红', characterId: 'cat' }, resolve)
+    );
+    const err = await new Promise((resolve) =>
+      b.emit('game:start', { game: 'liar' }, resolve)
+    );
+    assert.equal(err.ok, false);
+    assert.equal(err.error, '只有房主可以开始');
+    const ok = await new Promise((resolve) =>
+      a.emit('game:start', { game: 'liar' }, resolve)
+    );
+    assert.equal(ok.ok, true);
+  } finally {
+    a.close();
+    b.close();
+  }
+});
+
+test('rejoin cannot rebind identity on an established socket', async () => {
+  const s1 = connect();
+  try {
+    const createRes = await new Promise((resolve) =>
+      s1.emit('room:create', { playerId: 'paC1x', nickname: '阿明', characterId: 'fox' }, resolve)
+    );
+    assert.equal(createRes.ok, true);
+    const res = await new Promise((resolve) =>
+      s1.emit('room:rejoin', { roomId: createRes.roomId, playerId: 'someone-else' }, resolve)
+    );
+    assert.equal(res.ok, false);
+    assert.match(res.error, /非法/);
+  } finally {
+    s1.close();
+  }
+});
+
+test('game excludes offline players from the instance', async () => {
+  const a = connect();
+  const b = connect();
+  const c = connect();
+  try {
+    let lastA = null;
+    a.on('game:state', (s) => { lastA = s; });
+    const gsA = waitForEvent(a, 'game:state');
+    const createRes = await new Promise((resolve) =>
+      a.emit('room:create', { playerId: 'paC4', nickname: '阿明', characterId: 'fox' }, resolve)
+    );
+    await new Promise((resolve) =>
+      b.emit('room:join', { roomId: createRes.roomId, playerId: 'pbC4', nickname: '小红', characterId: 'cat' }, resolve)
+    );
+    await new Promise((resolve) =>
+      c.emit('room:join', { roomId: createRes.roomId, playerId: 'pcC4', nickname: '小刚', characterId: 'bear' }, resolve)
+    );
+    b.disconnect();
+    await new Promise((r) => setTimeout(r, 100));
+
+    const startRes = await new Promise((resolve) =>
+      a.emit('game:start', { game: 'liar', playerId: 'paC4' }, resolve)
+    );
+    assert.equal(startRes.ok, true);
+    await gsA;
+    assert.ok(lastA.playerIds.includes('paC4'));
+    assert.ok(!lastA.playerIds.includes('pbC4'));
+    assert.ok(lastA.playerIds.includes('pcC4'));
+  } finally {
+    a.close();
+    c.close();
   }
 });

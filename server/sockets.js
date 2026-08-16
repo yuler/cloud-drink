@@ -71,9 +71,9 @@ function attachSocketHandlers(io, rooms) {
       }
     });
 
-    socket.on('room:leave', ({ playerId } = {}, ack) => {
+    socket.on('room:leave', (_payload, ack) => {
       const roomId = socket.data.roomId;
-      const pid = playerId || socket.data.playerId;
+      const pid = socket.data.playerId;
       if (roomId && pid) {
         rooms.leaveRoom({ roomId, playerId: pid });
         const room = rooms.getRoom(roomId);
@@ -85,6 +85,9 @@ function attachSocketHandlers(io, rooms) {
 
     socket.on('room:rejoin', ({ roomId, playerId }, ack) => {
       try {
+        if (socket.data.playerId && socket.data.playerId !== playerId) {
+          return ack && ack({ ok: false, error: '非法操作' });
+        }
         const { room } = rooms.rejoin({ roomId, playerId });
         socket.data.playerId = playerId;
         socket.data.roomId = room.id;
@@ -107,19 +110,18 @@ function attachSocketHandlers(io, rooms) {
       }
     });
 
-    socket.on('game:start', ({ game, playerId } = {}, ack) => {
+    socket.on('game:start', ({ game } = {}, ack) => {
       const room = currentRoom(socket, rooms);
       if (!room) return ack && ack({ ok: false, error: '不在房间中' });
-      const p = room.players.find((x) => x.id === playerId);
+      const p = room.players.find((x) => x.id === socket.data.playerId);
       if (!p || !p.isOwner) return ack && ack({ ok: false, error: '只有房主可以开始' });
-      if (room.players.filter((x) => x.isOnline).length < 2) {
-        return ack && ack({ ok: false, error: '至少需要 2 人在线' });
-      }
+      const online = room.players.filter((x) => x.isOnline);
+      if (online.length < 2) return ack && ack({ ok: false, error: '至少需要 2 人在线' });
       let instance;
       if (game === 'liar') {
-        instance = new LiarsDiceGame(room.players.map((x) => x.id));
+        instance = new LiarsDiceGame(online.map((x) => x.id));
       } else if (game === 'truth') {
-        instance = new TruthOrDareGame(room.players.map((x) => x.id));
+        instance = new TruthOrDareGame(online.map((x) => x.id));
       } else {
         return ack && ack({ ok: false, error: '未知游戏' });
       }
@@ -132,10 +134,10 @@ function attachSocketHandlers(io, rooms) {
       ack && ack({ ok: true });
     });
 
-    socket.on('game:next', ({ playerId } = {}, ack) => {
+    socket.on('game:next', (_payload, ack) => {
       const room = currentRoom(socket, rooms);
       if (!room || !room.gameInstance) return ack && ack({ ok: false, error: '没有进行中的游戏' });
-      const p = room.players.find((x) => x.id === playerId);
+      const p = room.players.find((x) => x.id === socket.data.playerId);
       if (!p || !p.isOwner) return ack && ack({ ok: false, error: '只有房主可以继续' });
       const res = room.gameInstance.nextRound();
       if (res && res.error) return ack && ack({ ok: false, error: res.error });
@@ -143,10 +145,10 @@ function attachSocketHandlers(io, rooms) {
       ack && ack({ ok: true });
     });
 
-    socket.on('game:switch', ({ playerId } = {}, ack) => {
+    socket.on('game:switch', (_payload, ack) => {
       const room = currentRoom(socket, rooms);
       if (!room) return ack && ack({ ok: false, error: '不在房间中' });
-      const p = room.players.find((x) => x.id === playerId);
+      const p = room.players.find((x) => x.id === socket.data.playerId);
       if (!p || !p.isOwner) return ack && ack({ ok: false, error: '只有房主可以切换' });
       room.game = null;
       room.gameInstance = null;
@@ -154,48 +156,48 @@ function attachSocketHandlers(io, rooms) {
       ack && ack({ ok: true });
     });
 
-    socket.on('liar:call', ({ bid, playerId }, ack) => {
+    socket.on('liar:call', ({ bid }, ack) => {
       const room = currentRoom(socket, rooms);
       if (!room || !room.gameInstance) return ack && ack({ ok: false, error: '没有进行中的游戏' });
-      const res = room.gameInstance.call(playerId, bid);
+      const res = room.gameInstance.call(socket.data.playerId, bid);
       if (res && res.error) return ack && ack({ ok: false, error: res.error });
       broadcastGame(io, room);
       ack && ack({ ok: true });
     });
 
-    socket.on('liar:open', ({ playerId }, ack) => {
+    socket.on('liar:open', (_payload, ack) => {
       const room = currentRoom(socket, rooms);
       if (!room || !room.gameInstance) return ack && ack({ ok: false, error: '没有进行中的游戏' });
-      const res = room.gameInstance.open(playerId);
-      if (res && res.error) return ack && ack({ ok: false, error: res.error });
-      broadcastGame(io, room);
-      maybeDrink(io, room);
-      ack && ack({ ok: true });
-    });
-
-    socket.on('truth:choose', ({ type, playerId }, ack) => {
-      const room = currentRoom(socket, rooms);
-      if (!room || !room.gameInstance) return ack && ack({ ok: false, error: '没有进行中的游戏' });
-      const res = room.gameInstance.choose(playerId, type);
-      if (res && res.error) return ack && ack({ ok: false, error: res.error });
-      broadcastGame(io, room);
-      ack && ack({ ok: true });
-    });
-
-    socket.on('truth:done', ({ playerId }, ack) => {
-      const room = currentRoom(socket, rooms);
-      if (!room || !room.gameInstance) return ack && ack({ ok: false, error: '没有进行中的游戏' });
-      const res = room.gameInstance.done(playerId);
+      const res = room.gameInstance.open(socket.data.playerId);
       if (res && res.error) return ack && ack({ ok: false, error: res.error });
       broadcastGame(io, room);
       maybeDrink(io, room);
       ack && ack({ ok: true });
     });
 
-    socket.on('table:toast', ({ playerId }, ack) => {
+    socket.on('truth:choose', ({ type }, ack) => {
+      const room = currentRoom(socket, rooms);
+      if (!room || !room.gameInstance) return ack && ack({ ok: false, error: '没有进行中的游戏' });
+      const res = room.gameInstance.choose(socket.data.playerId, type);
+      if (res && res.error) return ack && ack({ ok: false, error: res.error });
+      broadcastGame(io, room);
+      ack && ack({ ok: true });
+    });
+
+    socket.on('truth:done', (_payload, ack) => {
+      const room = currentRoom(socket, rooms);
+      if (!room || !room.gameInstance) return ack && ack({ ok: false, error: '没有进行中的游戏' });
+      const res = room.gameInstance.done(socket.data.playerId);
+      if (res && res.error) return ack && ack({ ok: false, error: res.error });
+      broadcastGame(io, room);
+      maybeDrink(io, room);
+      ack && ack({ ok: true });
+    });
+
+    socket.on('table:toast', (_payload, ack) => {
       const room = currentRoom(socket, rooms);
       if (!room) return ack && ack({ ok: false, error: '不在房间中' });
-      io.to(room.id).emit('table:toast', { from: playerId });
+      io.to(room.id).emit('table:toast', { from: socket.data.playerId });
       ack && ack({ ok: true });
     });
   });

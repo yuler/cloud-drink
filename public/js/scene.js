@@ -173,7 +173,12 @@ export class TableScene {
     tween(700, (t) => {
       ring.scale.setScalar(1 + t * 2);
       ring.material.opacity = 1 - t;
-    }, () => this.scene.remove(ring));
+    }, () => {
+      ring.geometry.dispose();
+      if (ring.material.map) ring.material.map.dispose();
+      ring.material.dispose();
+      this.scene.remove(ring);
+    });
   }
 
   _makePipTexture(face) {
@@ -227,6 +232,14 @@ export class TableScene {
   _removeDice(seatIndex) {
     const g = this.diceGroups.get(seatIndex);
     if (g) {
+      g.traverse((obj) => {
+        if (obj.geometry) obj.geometry.dispose();
+        const mats = Array.isArray(obj.material) ? obj.material : [obj.material];
+        for (const m of mats) {
+          if (m.map) m.map.dispose();
+          m.dispose();
+        }
+      });
       this.scene.remove(g);
       this.diceGroups.delete(seatIndex);
     }
