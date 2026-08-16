@@ -2,10 +2,30 @@
 <html lang="zh-CN">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
   <title>云喝酒</title>
+  <link rel="stylesheet" href="/css/style.css" />
 </head>
 <body>
-  <h1>云喝酒</h1>
+  <main class="landing">
+    <h1 class="logo">🍻 云喝酒</h1>
+    <p class="tagline">异地好友，线上干杯</p>
+
+    <section class="panel">
+      <label>你的昵称</label>
+      <input id="nickname" type="text" maxlength="12" placeholder="输入昵称" />
+      <label>选个角色</label>
+      <div id="character-picker" class="character-picker"></div>
+      <div class="actions">
+        <button id="btn-create" class="primary">创建房间</button>
+        <div class="divider">或</div>
+        <input id="room-code" type="text" maxlength="4" placeholder="输入 4 位房号" />
+        <button id="btn-join">加入房间</button>
+      </div>
+      <p id="error" class="error"></p>
+    </section>
+  </main>
+  <script src="/socket.io/socket.io.js"></script>
+  <script src="/js/main.js"></script>
 </body>
 </html>
