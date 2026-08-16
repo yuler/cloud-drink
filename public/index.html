@@ -6,7 +6,7 @@
   <title>云喝酒</title>
   <link rel="stylesheet" href="/css/style.css" />
 </head>
-<body>
+<body class="landing-body">
   <main class="landing">
     <h1 class="logo">🍻 云喝酒</h1>
     <p class="tagline">异地好友，线上干杯</p>
@@ -14,12 +14,23 @@
     <section class="panel">
       <label>你的昵称</label>
       <input id="nickname" type="text" maxlength="12" placeholder="输入昵称" />
-      <label>选个角色</label>
-      <div id="character-picker" class="character-picker"></div>
+
+      <label>捏个脸</label>
+      <div class="avatar-preview" id="avatar-preview"></div>
+
+      <label>颜色</label>
+      <div id="color-picker" class="picker-row"></div>
+
+      <label>表情</label>
+      <div id="face-picker" class="picker-row"></div>
+
+      <label>配饰</label>
+      <div id="accessory-picker" class="picker-row"></div>
+
       <div class="actions">
         <button id="btn-create" class="primary">创建房间</button>
         <div class="divider">或</div>
-        <input id="room-code" type="text" maxlength="4" placeholder="输入 4 位房号" />
+        <input id="room-code" type="text" maxlength="4" placeholder="输入 4 位房号" autocomplete="off" />
         <button id="btn-join">加入房间</button>
       </div>
       <p id="error" class="error"></p>

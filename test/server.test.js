@@ -43,17 +43,20 @@ test('create and join broadcast room state to both players', async () => {
   try {
     const bState = waitForEvent(b, 'room:state');
     const createRes = await new Promise((resolve) =>
-      a.emit('room:create', { playerId: 'pa', nickname: '阿明', characterId: 'fox' }, resolve)
+      a.emit('room:create', { playerId: 'pa', nickname: '阿明', characterId: 'fox', face: 'cool', accessory: 'cap' }, resolve)
     );
     assert.equal(createRes.ok, true);
     const roomId = createRes.roomId;
     const joinRes = await new Promise((resolve) =>
-      b.emit('room:join', { roomId, playerId: 'pb', nickname: '小红', characterId: 'cat' }, resolve)
+      b.emit('room:join', { roomId, playerId: 'pb', nickname: '小红', characterId: 'cat', face: 'smile', accessory: 'none' }, resolve)
     );
     assert.equal(joinRes.ok, true);
     const state = await bState;
     assert.equal(state.room.id, roomId);
     assert.equal(state.room.players.length, 2);
+    const aPlayer = state.room.players.find((p) => p.id === 'pa');
+    assert.equal(aPlayer.face, 'cool');
+    assert.equal(aPlayer.accessory, 'cap');
   } finally {
     a.close();
     b.close();
@@ -171,43 +174,6 @@ test('non-current player call is rejected', async () => {
     );
     assert.equal(err.ok, false);
     assert.equal(err.error, '还没轮到你叫数');
-  } finally {
-    a.close();
-    b.close();
-  }
-});
-
-test('truth game full flow increments loser drinkCount', async () => {
-  const a = connect();
-  const b = connect();
-  try {
-    let lastRoom = null;
-    a.on('room:state', (s) => { lastRoom = s; });
-    const gs = waitForEvent(a, 'game:state');
-    const createRes = await new Promise((resolve) =>
-      a.emit('room:create', { playerId: 'pa6', nickname: '阿明', characterId: 'fox' }, resolve)
-    );
-    await new Promise((resolve) =>
-      b.emit('room:join', { roomId: createRes.roomId, playerId: 'pb6', nickname: '小红', characterId: 'cat' }, resolve)
-    );
-    const startRes = await new Promise((resolve) =>
-      a.emit('game:start', { game: 'truth', playerId: 'pa6' }, resolve)
-    );
-    assert.equal(startRes.ok, true);
-    const state = await gs;
-    const target = state.targetId;
-    const targetSocket = target === 'pa6' ? a : b;
-
-    const chooseRes = await new Promise((resolve) =>
-      targetSocket.emit('truth:choose', { type: 'truth' }, resolve)
-    );
-    assert.equal(chooseRes.ok, true);
-    const doneRes = await new Promise((resolve) => targetSocket.emit('truth:done', {}, resolve));
-    assert.equal(doneRes.ok, true);
-
-    await new Promise((r) => setTimeout(r, 100));
-    const player = lastRoom.room.players.find((p) => p.id === target);
-    assert.equal(player.drinkCount, 1);
   } finally {
     a.close();
     b.close();

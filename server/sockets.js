@@ -1,5 +1,4 @@
 const { LiarsDiceGame } = require('./games/liars-dice');
-const { TruthOrDareGame } = require('./games/truth-dare');
 
 function serializeRoom(room) {
   return {
@@ -10,6 +9,8 @@ function serializeRoom(room) {
       id: p.id,
       nickname: p.nickname,
       characterId: p.characterId,
+      face: p.face,
+      accessory: p.accessory,
       isOwner: p.isOwner,
       isOnline: p.isOnline,
       drinkCount: p.drinkCount,
@@ -43,9 +44,9 @@ function maybeDrink(io, room) {
 
 function attachSocketHandlers(io, rooms) {
   io.on('connection', (socket) => {
-    socket.on('room:create', ({ playerId, nickname, characterId }, ack) => {
+    socket.on('room:create', ({ playerId, nickname, characterId, face, accessory }, ack) => {
       try {
-        const { room } = rooms.createRoom({ playerId, nickname, characterId });
+        const { room } = rooms.createRoom({ playerId, nickname, characterId, face, accessory });
         socket.data.playerId = playerId;
         socket.data.roomId = room.id;
         socket.join(room.id);
@@ -57,9 +58,9 @@ function attachSocketHandlers(io, rooms) {
       }
     });
 
-    socket.on('room:join', ({ roomId, playerId, nickname, characterId }, ack) => {
+    socket.on('room:join', ({ roomId, playerId, nickname, characterId, face, accessory }, ack) => {
       try {
-        const { room } = rooms.joinRoom({ roomId, playerId, nickname, characterId });
+        const { room } = rooms.joinRoom({ roomId, playerId, nickname, characterId, face, accessory });
         socket.data.playerId = playerId;
         socket.data.roomId = room.id;
         socket.join(room.id);
@@ -120,8 +121,6 @@ function attachSocketHandlers(io, rooms) {
       let instance;
       if (game === 'liar') {
         instance = new LiarsDiceGame(online.map((x) => x.id));
-      } else if (game === 'truth') {
-        instance = new TruthOrDareGame(online.map((x) => x.id));
       } else {
         return ack && ack({ ok: false, error: '未知游戏' });
       }
@@ -169,25 +168,6 @@ function attachSocketHandlers(io, rooms) {
       const room = currentRoom(socket, rooms);
       if (!room || !room.gameInstance) return ack && ack({ ok: false, error: '没有进行中的游戏' });
       const res = room.gameInstance.open(socket.data.playerId);
-      if (res && res.error) return ack && ack({ ok: false, error: res.error });
-      broadcastGame(io, room);
-      maybeDrink(io, room);
-      ack && ack({ ok: true });
-    });
-
-    socket.on('truth:choose', ({ type }, ack) => {
-      const room = currentRoom(socket, rooms);
-      if (!room || !room.gameInstance) return ack && ack({ ok: false, error: '没有进行中的游戏' });
-      const res = room.gameInstance.choose(socket.data.playerId, type);
-      if (res && res.error) return ack && ack({ ok: false, error: res.error });
-      broadcastGame(io, room);
-      ack && ack({ ok: true });
-    });
-
-    socket.on('truth:done', (_payload, ack) => {
-      const room = currentRoom(socket, rooms);
-      if (!room || !room.gameInstance) return ack && ack({ ok: false, error: '没有进行中的游戏' });
-      const res = room.gameInstance.done(socket.data.playerId);
       if (res && res.error) return ack && ack({ ok: false, error: res.error });
       broadcastGame(io, room);
       maybeDrink(io, room);

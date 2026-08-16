@@ -53,10 +53,6 @@ function nameOf(pid) {
   return p ? p.nickname : '未知';
 }
 
-function me() {
-  return room ? room.players.find((p) => p.id === playerId) : null;
-}
-
 function isOwner() {
   return !!room && room.ownerId === playerId;
 }
@@ -91,6 +87,7 @@ socket.on('game:state', (state) => {
 socket.on('table:toast', ({ from }) => {
   const seat = seatOf(from);
   if (seat !== -1) {
+    scene.playDrink(seat);
     scene.playToast(seat);
     sfx.playClink();
   }
@@ -109,7 +106,9 @@ function syncSeats() {
     if (!present.has(i)) scene.removePlayer(i);
   }
   if (room) {
-    for (const p of room.players) scene.addPlayer(p.seat, { characterId: p.characterId });
+    for (const p of room.players) {
+      scene.addPlayer(p.seat, { characterId: p.characterId, face: p.face, accessory: p.accessory });
+    }
   }
 }
 
@@ -140,17 +139,17 @@ function renderGame() {
   if (!gameState || !room) return;
   el.lobbyPanel.classList.add('hidden');
   el.gamePanel.classList.remove('hidden');
-  el.gameTitle.textContent = gameState.game === 'liar' ? '大话骰' : '真心话大冒险';
+  el.gameTitle.textContent = '大话骰';
 
   for (const p of room.players) scene.setDrunkLevel(p.seat, p.drinkCount);
 
   if (gameState.phase === 'betting' && prevGamePhase !== 'betting') {
     for (let i = 0; i < 6; i++) scene.removeDice(i);
+    scene.showDice(seatOf(playerId), gameState.myDice);
   }
   prevGamePhase = gameState.phase;
 
-  if (gameState.game === 'liar') renderLiar();
-  else renderTruth();
+  renderLiar();
 
   const loserId = gameState.loserId || null;
   if (loserId) {
@@ -177,12 +176,12 @@ function renderOwnerGameControls() {
   again.className = 'primary';
   again.textContent = '再来一局';
   again.addEventListener('click', () => {
-    socket.emit('game:next', { playerId }, (res) => { if (!res.ok) showToast(res.error, true); });
+    socket.emit('game:next', {}, (res) => { if (!res.ok) showToast(res.error, true); });
   });
   const back = document.createElement('button');
-  back.textContent = '返回选游戏';
+  back.textContent = '返回大厅';
   back.addEventListener('click', () => {
-    socket.emit('game:switch', { playerId }, (res) => { if (!res.ok) showToast(res.error, true); });
+    socket.emit('game:switch', {}, (res) => { if (!res.ok) showToast(res.error, true); });
   });
   el.ownerGameControls.append(again, back);
 }
@@ -206,11 +205,10 @@ function renderLiar() {
     turnDiv.textContent = myTurn ? '轮到你！' : `等待 ${nameOf(gameState.turnPlayerId)} 叫数…`;
     c.appendChild(turnDiv);
 
-    const reveal = document.createElement('button');
-    reveal.className = 'ghost';
-    reveal.textContent = '亮出我的骰子';
-    reveal.addEventListener('click', () => scene.showDice(seatOf(playerId), gameState.myDice));
-    c.appendChild(reveal);
+    const diceHint = document.createElement('div');
+    diceHint.className = 'dice-hint';
+    diceHint.textContent = `你的骰子：${gameState.myDice.join(' · ')}`;
+    c.appendChild(diceHint);
 
     if (myTurn) {
       const panel = document.createElement('div');
@@ -230,13 +228,13 @@ function renderLiar() {
       btnCall.textContent = '叫数';
       btnCall.addEventListener('click', () => {
         const bid = { quantity: parseInt(q.value, 10) || 1, face: parseInt(f.value, 10) };
-        socket.emit('liar:call', { bid, playerId }, (res) => { if (!res.ok) showToast(res.error, true); });
+        socket.emit('liar:call', { bid }, (res) => { if (!res.ok) showToast(res.error, true); });
       });
       const btnOpen = document.createElement('button');
       btnOpen.textContent = '开';
       btnOpen.disabled = gameState.bids.length === 0;
       btnOpen.addEventListener('click', () => {
-        socket.emit('liar:open', { playerId }, (res) => { if (!res.ok) showToast(res.error, true); });
+        socket.emit('liar:open', {}, (res) => { if (!res.ok) showToast(res.error, true); });
       });
       panel.append(q, f, btnCall, btnOpen);
       c.appendChild(panel);
@@ -252,53 +250,6 @@ function renderLiar() {
   }
 }
 
-function renderTruth() {
-  const c = el.gameContent;
-  c.innerHTML = '';
-
-  if (gameState.phase === 'choosing') {
-    const hint = document.createElement('div');
-    hint.className = 'turn-hint';
-    hint.textContent = `🎯 骰子选中了：${nameOf(gameState.targetId)}`;
-    c.appendChild(hint);
-    if (gameState.targetId === playerId) {
-      const panel = document.createElement('div');
-      panel.className = 'bid-panel';
-      const t = document.createElement('button');
-      t.textContent = '真心话';
-      t.addEventListener('click', () => {
-        socket.emit('truth:choose', { type: 'truth', playerId }, (res) => { if (!res.ok) showToast(res.error, true); });
-      });
-      const d = document.createElement('button');
-      d.textContent = '大冒险';
-      d.addEventListener('click', () => {
-        socket.emit('truth:choose', { type: 'dare', playerId }, (res) => { if (!res.ok) showToast(res.error, true); });
-      });
-      panel.append(t, d);
-      c.appendChild(panel);
-    }
-  } else if (gameState.phase === 'showing') {
-    const card = document.createElement('div');
-    card.className = 'question-card';
-    card.textContent = `${nameOf(gameState.targetId)} 的${gameState.questionType === 'truth' ? '真心话' : '大冒险'}：${gameState.question}`;
-    c.appendChild(card);
-    if (gameState.targetId === playerId) {
-      const btn = document.createElement('button');
-      btn.className = 'primary';
-      btn.textContent = '我完成啦';
-      btn.addEventListener('click', () => {
-        socket.emit('truth:done', { playerId }, (res) => { if (!res.ok) showToast(res.error, true); });
-      });
-      c.appendChild(btn);
-    }
-  } else if (gameState.phase === 'roundEnd') {
-    const msg = document.createElement('div');
-    msg.className = 'result';
-    msg.innerHTML = `<b>${escapeHtml(nameOf(gameState.loserId))} 干杯！🍻</b>`;
-    c.appendChild(msg);
-  }
-}
-
 function showDrinkOverlay() {
   el.drinkOverlay.classList.remove('hidden');
   clearTimeout(showDrinkOverlay._t);
@@ -308,11 +259,35 @@ function showDrinkOverlay() {
 // ---------- hud ----------
 
 document.getElementById('btn-toast').addEventListener('click', () => {
-  socket.emit('table:toast', { playerId });
+  const seat = seatOf(playerId);
+  if (seat !== -1) {
+    scene.playDrink(seat);
+    sfx.playGulp();
+  }
+  socket.emit('table:toast', {});
+});
+
+document.getElementById('btn-share').addEventListener('click', async () => {
+  if (!room) return;
+  const url = `${location.origin}/?room=${room.id}`;
+  if (navigator.share) {
+    try {
+      await navigator.share({ title: '云喝酒', text: `来我的酒桌一起喝！房号 ${room.id}`, url });
+      return;
+    } catch (e) {
+      /* user cancelled */
+    }
+  }
+  try {
+    await navigator.clipboard.writeText(url);
+    showToast(`已复制邀请链接（房号 ${room.id}）`);
+  } catch (e) {
+    showToast(`房号 ${room.id}，邀请链接：${url}`, true);
+  }
 });
 
 document.getElementById('btn-leave').addEventListener('click', () => {
-  socket.emit('room:leave', { playerId }, () => {
+  socket.emit('room:leave', {}, () => {
     sessionStorage.removeItem('cloudDrink:roomId');
     location.href = '/';
   });
@@ -320,7 +295,7 @@ document.getElementById('btn-leave').addEventListener('click', () => {
 
 el.ownerControls.querySelectorAll('.game-btn').forEach((btn) => {
   btn.addEventListener('click', () => {
-    socket.emit('game:start', { game: btn.dataset.game, playerId }, (res) => {
+    socket.emit('game:start', { game: btn.dataset.game }, (res) => {
       if (!res.ok) showToast(res.error, true);
     });
   });
