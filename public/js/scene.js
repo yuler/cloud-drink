@@ -1,18 +1,8 @@
-import * as THREE from '/vendor/three/three.module.js';
-
-const SEAT_COUNT = 6;
-const TABLE_RADIUS = 2.2;
-const SEAT_RADIUS = 3.4;
-const DICE_RADIUS = 1.7;
-
-export const CHARACTER_COLORS = {
-  fox: 0xf28b45,
-  cat: 0xf5a623,
-  bear: 0xa9744f,
-  panda: 0x5a5a5a,
-  rabbit: 0xe8e8e8,
-  frog: 0x4caf50,
-};
+import * as THREE from 'three';
+import { CSS2DRenderer, CSS2DObject } from 'three/addons/renderers/CSS2DRenderer.js';
+import { createChibi } from '/js/engine/chibi.js';
+import { buildTavern, seatPosition, SEAT_COUNT, DICE_RADIUS } from '/js/engine/tavern.js';
+import { toonGradient } from '/js/engine/textures.js';
 
 function tween(duration, onUpdate, onDone) {
   let start = null;
@@ -31,66 +21,113 @@ export class TableScene {
     this.container = container;
     this.seats = new Map();
     this.diceGroups = new Map();
-    this.baseColors = new Map(); // seatIndex -> base color
+    this.baseColors = new Map();
+    this.localSeat = -1;
+    this._walk = { x: 0, y: 0 };
     this._init();
   }
 
   _init() {
     const width = this.container.clientWidth || window.innerWidth;
     const height = this.container.clientHeight || window.innerHeight;
+    toonGradient();
 
     this.scene = new THREE.Scene();
-    this.scene.background = new THREE.Color(0x1b1b2f);
+    this.scene.background = new THREE.Color(0x140c08);
+    this.scene.fog = new THREE.FogExp2(0x140c08, 0.035);
 
-    this.camera = new THREE.PerspectiveCamera(45, width / height, 0.1, 100);
-    this.camera.position.set(0, 6.5, 7.5);
-    this.camera.lookAt(0, 0.8, 0);
+    this._orbitAngle = Math.PI * 0.22;
+    this._orbitRadius = 11.5;
+    this._orbitHeight = 9.2;
+
+    this.camera = new THREE.PerspectiveCamera(38, width / height, 0.1, 80);
+    this._applyOrbit();
 
     this.renderer = new THREE.WebGLRenderer({ antialias: true });
     this.renderer.setSize(width, height);
     this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+    this.renderer.shadowMap.enabled = true;
     this.container.appendChild(this.renderer.domElement);
 
-    const ambient = new THREE.AmbientLight(0xffffff, 0.6);
-    this.scene.add(ambient);
-    const main = new THREE.DirectionalLight(0xffffff, 0.9);
-    main.position.set(4, 8, 4);
-    this.scene.add(main);
+    this.labelRenderer = new CSS2DRenderer();
+    this.labelRenderer.setSize(width, height);
+    this.labelRenderer.domElement.style.position = 'absolute';
+    this.labelRenderer.domElement.style.inset = '0';
+    this.labelRenderer.domElement.style.pointerEvents = 'none';
+    this.container.appendChild(this.labelRenderer.domElement);
 
-    const top = new THREE.Mesh(
-      new THREE.CylinderGeometry(TABLE_RADIUS, TABLE_RADIUS, 0.15, 48),
-      new THREE.MeshStandardMaterial({ color: 0x6b4a2c })
-    );
-    top.position.y = 0.9;
-    this.scene.add(top);
-    const leg = new THREE.Mesh(
-      new THREE.CylinderGeometry(0.25, 0.35, 0.9, 16),
-      new THREE.MeshStandardMaterial({ color: 0x4a3018 })
-    );
-    leg.position.y = 0.45;
-    this.scene.add(leg);
+    const ambient = new THREE.AmbientLight(0xffe0b8, 0.45);
+    this.scene.add(ambient);
+    const main = new THREE.DirectionalLight(0xffd27a, 1.05);
+    main.position.set(6, 12, 5);
+    main.castShadow = true;
+    main.shadow.mapSize.set(1024, 1024);
+    this.scene.add(main);
+    const fill = new THREE.PointLight(0xff9a3d, 1.4, 18);
+    fill.position.set(0, 5.2, 0);
+    this.scene.add(fill);
+
+    buildTavern(this.scene);
 
     window.addEventListener('resize', () => this.resize());
     this._clock = new THREE.Clock();
     this._loop();
   }
 
-  seatPosition(index) {
-    const angle = (index / SEAT_COUNT) * Math.PI * 2 - Math.PI / 2;
-    return new THREE.Vector3(Math.cos(angle) * SEAT_RADIUS, 0, Math.sin(angle) * SEAT_RADIUS);
+  _applyOrbit() {
+    this.camera.position.set(
+      Math.sin(this._orbitAngle) * this._orbitRadius,
+      this._orbitHeight,
+      Math.cos(this._orbitAngle) * this._orbitRadius
+    );
+    this.camera.lookAt(0, 0.9, 0);
   }
 
-  addPlayer(seatIndex, { characterId, face, accessory }) {
-    if (this.seats.has(seatIndex)) return;
-    const color = CHARACTER_COLORS[characterId] || CHARACTER_COLORS.fox;
-    this.baseColors.set(seatIndex, color);
-    const group = this._makeCharacter(color, face, accessory);
-    const pos = this.seatPosition(seatIndex);
-    pos.y = 0.9;
+  orbit(dx, dy) {
+    this._orbitAngle += dx * 0.04;
+    this._orbitHeight = Math.min(12, Math.max(4.2, this._orbitHeight + dy * 0.08));
+    this._applyOrbit();
+  }
+
+  setWalkInput(x, y) {
+    this._walk.x = x;
+    this._walk.y = y;
+  }
+
+  setLocalSeat(index) {
+    this.localSeat = index;
+  }
+
+  addPlayer(seatIndex, appearance) {
+    if (this.seats.has(seatIndex)) {
+      this._setTag(seatIndex, appearance);
+      return;
+    }
+    const group = createChibi(appearance);
+    const pos = seatPosition(seatIndex);
+    pos.y = 0.62;
     group.position.copy(pos);
-    group.rotation.y = Math.atan2(-pos.x, -pos.z) + Math.PI;
+    group.lookAt(0, 0.62, 0);
+    group.rotateY(Math.PI);
     this.scene.add(group);
-    this.seats.set(seatIndex, { group, drunkLevel: 0 });
+
+    const tag = document.createElement('div');
+    tag.className = 'seat-tag';
+    const obj = new CSS2DObject(tag);
+    obj.position.set(0, 2.15, 0);
+    group.add(obj);
+
+    this.seats.set(seatIndex, { group, drunkLevel: 0, tag, home: pos.clone() });
+    this.baseColors.set(seatIndex, appearance.characterId);
+    this._setTag(seatIndex, appearance);
+  }
+
+  _setTag(seatIndex, appearance) {
+    const entry = this.seats.get(seatIndex);
+    if (!entry) return;
+    const you = appearance.isYou ? '你' : (appearance.nickname || '');
+    entry.tag.textContent = you;
+    entry.tag.classList.toggle('you', !!appearance.isYou);
   }
 
   removePlayer(seatIndex) {
@@ -102,135 +139,39 @@ export class TableScene {
     this.baseColors.delete(seatIndex);
   }
 
-  _makeCharacter(color, face, accessory) {
-    const group = new THREE.Group();
-    const bodyMat = new THREE.MeshStandardMaterial({ color });
-
-    const body = new THREE.Mesh(new THREE.CylinderGeometry(0.45, 0.55, 1.1, 16), bodyMat);
-    body.position.y = 0.55;
-    group.add(body);
-
-    // head group (rotatable for the drink animation)
-    const headGroup = new THREE.Group();
-    headGroup.position.y = 1.35;
-    group.add(headGroup);
-
-    const head = new THREE.Mesh(new THREE.SphereGeometry(0.42, 24, 24), bodyMat);
-    headGroup.add(head);
-
-    this._makeFace(headGroup, face);
-    this._makeAccessory(headGroup, accessory);
-
-    // cup (independent, animated during drinking)
-    const cup = new THREE.Group();
-    const cupBody = new THREE.Mesh(
-      new THREE.CylinderGeometry(0.12, 0.09, 0.28, 16),
-      new THREE.MeshStandardMaterial({ color: 0xe8e0d0 })
-    );
-    cup.add(cupBody);
-    cup.position.set(0.45, 0.35, 0.1);
-    group.add(cup);
-
-    group.userData = { bodyMat, headGroup, cup, cupStart: cup.position.clone() };
-    return group;
-  }
-
-  _makeFace(headGroup, face) {
-    const eyeMat = new THREE.MeshStandardMaterial({ color: 0x111111 });
-    const eyeL = new THREE.Mesh(new THREE.SphereGeometry(0.05, 12, 12), eyeMat);
-    const eyeR = new THREE.Mesh(new THREE.SphereGeometry(0.05, 12, 12), eyeMat);
-
-    if (face === 'cool') {
-      eyeL.scale.set(1, 0.45, 1);
-      eyeR.scale.set(1, 0.45, 1);
-      eyeL.position.set(-0.15, 1.44, 0.37);
-      eyeR.position.set(0.15, 1.44, 0.37);
-    } else if (face === 'derp') {
-      eyeL.scale.set(1.3, 1.3, 1.3);
-      eyeR.scale.set(1.3, 1.3, 1.3);
-      eyeL.position.set(-0.15, 1.46, 0.36);
-      eyeR.position.set(0.15, 1.46, 0.36);
-    } else {
-      eyeL.position.set(-0.14, 1.45, 0.37);
-      eyeR.position.set(0.14, 1.45, 0.37);
-    }
-    headGroup.add(eyeL);
-    headGroup.add(eyeR);
-
-    const mouthMat = new THREE.MeshStandardMaterial({ color: 0x111111 });
-    let mouth;
-    if (face === 'cool') {
-      mouth = new THREE.Mesh(new THREE.BoxGeometry(0.2, 0.03, 0.03), mouthMat);
-      mouth.position.set(0, 1.26, 0.37);
-    } else if (face === 'derp') {
-      mouth = new THREE.Mesh(new THREE.SphereGeometry(0.055, 12, 12), mouthMat);
-      mouth.position.set(0, 1.26, 0.37);
-    } else {
-      mouth = new THREE.Mesh(new THREE.TorusGeometry(0.14, 0.035, 8, 16, Math.PI), mouthMat);
-      mouth.rotation.z = Math.PI;
-      mouth.position.set(0, 1.3, 0.37);
-    }
-    headGroup.add(mouth);
-  }
-
-  _makeAccessory(headGroup, accessory) {
-    if (accessory === 'cap') {
-      const capMat = new THREE.MeshStandardMaterial({ color: 0x2f2f3a });
-      const dome = new THREE.Mesh(
-        new THREE.SphereGeometry(0.46, 16, 16, 0, Math.PI * 2, 0, Math.PI / 2),
-        capMat
-      );
-      dome.position.y = 0.05;
-      headGroup.add(dome);
-      const brim = new THREE.Mesh(new THREE.CylinderGeometry(0.5, 0.5, 0.05, 16), capMat);
-      brim.rotation.x = Math.PI / 2;
-      brim.position.set(0, 0.02, 0.38);
-      headGroup.add(brim);
-    } else if (accessory === 'glasses') {
-      const rimMat = new THREE.MeshStandardMaterial({ color: 0x111111 });
-      const ringL = new THREE.Mesh(new THREE.TorusGeometry(0.1, 0.022, 8, 20), rimMat);
-      ringL.position.set(-0.14, 1.45, 0.4);
-      headGroup.add(ringL);
-      const ringR = new THREE.Mesh(new THREE.TorusGeometry(0.1, 0.022, 8, 20), rimMat);
-      ringR.position.set(0.14, 1.45, 0.4);
-      headGroup.add(ringR);
-      const bridge = new THREE.Mesh(new THREE.BoxGeometry(0.1, 0.025, 0.025), rimMat);
-      bridge.position.set(0, 1.45, 0.4);
-      headGroup.add(bridge);
-    }
-  }
-
   setDrunkLevel(seatIndex, level) {
     const entry = this.seats.get(seatIndex);
     if (!entry) return;
     entry.drunkLevel = Math.min(Math.max(level, 0), 3);
-    const base = this.baseColors.get(seatIndex) || CHARACTER_COLORS.fox;
+    const mat = entry.group.userData.bodyMat;
+    if (!mat) return;
     const t = entry.drunkLevel / 3;
-    const c = new THREE.Color(base).lerp(new THREE.Color(0xff6b5e), t);
-    entry.group.userData.bodyMat.color.copy(c);
+    const base = new THREE.Color(mat.color);
+    mat.color.copy(base).lerp(new THREE.Color(0xff6b5e), t * 0.35);
   }
 
   playDrink(seatIndex) {
     const entry = this.seats.get(seatIndex);
     if (!entry) return;
-    const { cup, headGroup, cupStart } = entry.group.userData;
-    const mouth = { x: 0.18, y: 1.25, z: 0.35 };
+    const { cup, headGroup, cupStart, armR } = entry.group.userData;
     tween(1400, (t) => {
       let k;
       if (t < 0.35) k = t / 0.35;
       else if (t < 0.7) k = 1;
       else k = 1 - (t - 0.7) / 0.3;
-      cup.position.set(
-        cupStart.x + (mouth.x - cupStart.x) * k,
-        cupStart.y + (mouth.y - cupStart.y) * k,
-        cupStart.z + (mouth.z - cupStart.z) * k
-      );
-      cup.rotation.x = -0.9 * k;
-      headGroup.rotation.x = -0.45 * k;
+      if (armR) armR.rotation.x = -1.1 * k;
+      if (headGroup) headGroup.rotation.x = -0.45 * k;
+      if (cup && cupStart) {
+        cup.position.set(cupStart.x, cupStart.y + 0.1 * k, cupStart.z + 0.08 * k);
+        cup.rotation.x = -0.9 * k;
+      }
     }, () => {
-      cup.position.copy(cupStart);
-      cup.rotation.x = 0;
-      headGroup.rotation.x = 0;
+      if (armR) armR.rotation.x = 0;
+      if (headGroup) headGroup.rotation.x = 0;
+      if (cup && cupStart) {
+        cup.position.copy(cupStart);
+        cup.rotation.x = 0;
+      }
     });
   }
 
@@ -238,10 +179,10 @@ export class TableScene {
     const entry = this.seats.get(seatIndex);
     if (!entry) return;
     const pos = entry.group.position.clone();
-    pos.y += 1.6;
+    pos.y += 1.7;
     const ring = new THREE.Mesh(
       new THREE.TorusGeometry(0.3, 0.05, 8, 24),
-      new THREE.MeshBasicMaterial({ color: 0xffd24a, transparent: true, opacity: 1 })
+      new THREE.MeshBasicMaterial({ color: 0xffb800, transparent: true, opacity: 1 })
     );
     ring.position.copy(pos);
     this.scene.add(ring);
@@ -250,10 +191,28 @@ export class TableScene {
       ring.material.opacity = 1 - t;
     }, () => {
       ring.geometry.dispose();
-      if (ring.material.map) ring.material.map.dispose();
       ring.material.dispose();
       this.scene.remove(ring);
     });
+  }
+
+  setSpeech(seatIndex, text) {
+    for (const e of this.seats.values()) {
+      if (e.bubble) {
+        e.group.remove(e.bubble);
+        e.bubble = null;
+      }
+    }
+    if (seatIndex < 0 || !text) return;
+    const entry = this.seats.get(seatIndex);
+    if (!entry) return;
+    const el = document.createElement('div');
+    el.className = 'world-bubble';
+    el.textContent = text;
+    const obj = new CSS2DObject(el);
+    obj.position.set(0.2, 2.45, 0);
+    entry.group.add(obj);
+    entry.bubble = obj;
   }
 
   _makePipTexture(face) {
@@ -282,7 +241,7 @@ export class TableScene {
   _makeDie(value) {
     const mat = (f) => new THREE.MeshStandardMaterial({ map: this._makePipTexture(f) });
     const materials = [mat(1), mat(2), mat(value), mat(4), mat(5), mat(6)];
-    return new THREE.Mesh(new THREE.BoxGeometry(0.3, 0.3, 0.3), materials);
+    return new THREE.Mesh(new THREE.BoxGeometry(0.28, 0.28, 0.28), materials);
   }
 
   showDice(seatIndex, values) {
@@ -291,10 +250,10 @@ export class TableScene {
     const group = new THREE.Group();
     values.forEach((v, i) => {
       const die = this._makeDie(v);
-      die.position.set((i - 2) * 0.36, 0, 0);
+      die.position.set((i - 2) * 0.32, 0, 0);
       group.add(die);
     });
-    group.position.set(Math.cos(angle) * DICE_RADIUS, 1.0, Math.sin(angle) * DICE_RADIUS);
+    group.position.set(Math.cos(angle) * DICE_RADIUS, 1.28, Math.sin(angle) * DICE_RADIUS);
     group.rotation.y = -angle;
     this.scene.add(group);
     this.diceGroups.set(seatIndex, group);
@@ -303,7 +262,7 @@ export class TableScene {
 
   _playDiceRoll(group, angle) {
     const startY = 3.2;
-    const targetY = 1.0;
+    const targetY = 1.28;
     group.position.y = startY;
     tween(800, (t) => {
       let y;
@@ -330,20 +289,19 @@ export class TableScene {
 
   _removeDice(seatIndex) {
     const g = this.diceGroups.get(seatIndex);
-    if (g) {
-      g.traverse((obj) => {
-        if (obj.geometry) obj.geometry.dispose();
-        if (obj.material) {
-          const mats = Array.isArray(obj.material) ? obj.material : [obj.material];
-          for (const m of mats) {
-            if (m.map) m.map.dispose();
-            m.dispose();
-          }
+    if (!g) return;
+    g.traverse((obj) => {
+      if (obj.geometry) obj.geometry.dispose();
+      if (obj.material) {
+        const mats = Array.isArray(obj.material) ? obj.material : [obj.material];
+        for (const m of mats) {
+          if (m.map) m.map.dispose();
+          m.dispose();
         }
-      });
-      this.scene.remove(g);
-      this.diceGroups.delete(seatIndex);
-    }
+      }
+    });
+    this.scene.remove(g);
+    this.diceGroups.delete(seatIndex);
   }
 
   resize() {
@@ -352,17 +310,42 @@ export class TableScene {
     this.camera.aspect = width / height;
     this.camera.updateProjectionMatrix();
     this.renderer.setSize(width, height);
+    this.labelRenderer.setSize(width, height);
   }
 
   _loop() {
     requestAnimationFrame(() => this._loop());
+    const dt = this._clock.getDelta();
     const t = this._clock.getElapsedTime();
+
+    const local = this.seats.get(this.localSeat);
+    if (local && (Math.abs(this._walk.x) > 0.12 || Math.abs(this._walk.y) > 0.12)) {
+      const camDir = new THREE.Vector3();
+      this.camera.getWorldDirection(camDir);
+      camDir.y = 0;
+      camDir.normalize();
+      const right = new THREE.Vector3().crossVectors(camDir, new THREE.Vector3(0, 1, 0)).normalize();
+      local.group.position.addScaledVector(right, this._walk.x * 3.2 * dt);
+      local.group.position.addScaledVector(camDir, -this._walk.y * 3.2 * dt);
+      const p = local.group.position;
+      const r = Math.hypot(p.x, p.z);
+      if (r < 2.5) {
+        p.x *= 2.5 / r;
+        p.z *= 2.5 / r;
+      }
+      if (r > 8) {
+        p.x *= 8 / r;
+        p.z *= 8 / r;
+      }
+      p.y = 0.62;
+      local.group.lookAt(p.x + this._walk.x, 0.62, p.z - this._walk.y);
+    }
+
     for (const entry of this.seats.values()) {
       const sway = entry.drunkLevel * 0.06;
       entry.group.rotation.z = Math.sin(t * 2) * 0.02 + Math.sin(t * 3.1) * sway;
-      entry.group.position.y = 0.9 + Math.sin(t * 2) * 0.02;
     }
     this.renderer.render(this.scene, this.camera);
+    this.labelRenderer.render(this.scene, this.camera);
   }
 }
-

@@ -2,39 +2,102 @@
 <html lang="zh-CN">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
   <title>酒桌</title>
   <link rel="stylesheet" href="/css/style.css" />
 </head>
 <body class="table-body">
-  <div id="scene"></div>
+  <div id="world" class="world">
+    <img id="world-bg" class="world-bg" src="/assets/bg-room.png" alt="" />
+    <div id="seats" class="seats"></div>
+    <div id="dice-stage" class="dice-stage hidden">
+      <div class="dice-cup" id="dice-cup">盅</div>
+      <div class="dice-row" id="dice-row"></div>
+    </div>
+    <img id="dice-art" class="dice-art hidden" src="/assets/dice-set.png" alt="" />
+  </div>
+  <p class="rotate-hint">请横屏体验</p>
 
-  <div id="hud" class="hud">
-    <span id="room-code-label">房号 --</span>
-    <div class="hud-actions">
-      <button id="btn-share">分享</button>
-      <button id="btn-toast">干杯 🍻</button>
-      <button id="btn-leave">离开</button>
+  <aside id="room-card" class="room-card">
+    <div class="room-card-row"><span>房间号</span><b id="room-code-label">----</b></div>
+    <div class="room-card-row"><span>游戏</span><b id="room-mode-label">大厅</b></div>
+    <div class="room-card-row"><span>人数</span><b id="room-count-label">0/6</b></div>
+    <button id="btn-share" class="btn-gold btn-sm" type="button">邀请好友</button>
+  </aside>
+
+  <nav class="icon-rail" aria-label="房间操作">
+    <button id="btn-mute" class="icon-btn" type="button" title="声音">🔊</button>
+    <button id="btn-emoji" class="icon-btn" type="button" title="表情">😊</button>
+    <button id="btn-settings" class="icon-btn" type="button" title="设置">⚙️</button>
+    <button id="btn-info" class="icon-btn" type="button" title="房间">ℹ️</button>
+    <button id="btn-rules" class="icon-btn" type="button" title="规则">📜</button>
+    <button id="btn-leave" class="icon-btn" type="button" title="离开">🚪</button>
+  </nav>
+
+  <div id="emoji-pop" class="emoji-pop hidden">
+    <button type="button" data-emoji="🍻">🍻</button>
+    <button type="button" data-emoji="😂">😂</button>
+    <button type="button" data-emoji="🔥">🔥</button>
+    <button type="button" data-emoji="👍">👍</button>
+  </div>
+
+  <div id="speech-bubble" class="speech-bubble hidden"></div>
+  <div id="dice-strip" class="dice-strip hidden"></div>
+  <button id="btn-mic" class="fab fab-mic" type="button" title="语音" disabled>🎤</button>
+
+  <div id="bottom-center" class="bottom-center">
+    <div id="lobby-actions">
+      <button id="btn-start" data-game="liar" class="btn-gold btn-wide hidden" type="button">开始游戏</button>
+    </div>
+    <div id="game-actions" class="hidden"></div>
+  </div>
+
+  <div id="walk-pad" class="walk-pad" aria-label="走动">
+    <div class="walk-knob" id="walk-knob"></div>
+    <span>走动</span>
+  </div>
+
+  <div id="result-overlay" class="overlay-card hidden">
+    <div class="result-box">
+      <p id="result-message"></p>
+      <button id="btn-cheers" class="btn-gold btn-wide" type="button">干杯！</button>
     </div>
   </div>
 
-  <div id="lobby-panel" class="panel hidden">
-    <h2>等好友入座</h2>
-    <div id="player-list" class="player-list"></div>
-    <div id="owner-controls" class="owner-controls hidden">
-      <button data-game="liar" class="game-btn primary">开始摇骰子</button>
+  <div id="end-overlay" class="overlay-card hidden">
+    <div class="end-banner">游戏结束</div>
+    <div class="scoreboard" id="scoreboard"></div>
+    <div id="end-actions" class="end-actions"></div>
+  </div>
+
+  <div id="drink-overlay" class="drink-overlay hidden">
+    <div class="drink-stage">
+      <img id="drink-hero" class="drink-hero" src="/assets/char-rabbit.png" alt="" />
+      <div class="drink-glass" aria-hidden="true">🍺</div>
+      <div class="drink-bubbles" aria-hidden="true"><i></i><i></i><i></i><i></i></div>
+    </div>
+    <p class="drink-title" id="drink-title">干杯！</p>
+    <div class="drink-bar"><i id="drink-bar-fill"></i></div>
+    <p class="drink-caption">喝酒中… <span id="drink-timer">2.5s</span></p>
+    <div class="drink-actions">
+      <button type="button" data-act="cheers">🍻<span>干杯</span></button>
+      <button type="button" data-act="clink">🥂<span>碰杯</span></button>
+      <button type="button" data-act="gulp">🍺<span>喝一杯</span></button>
+      <button type="button" data-act="refill">🍶<span>满上</span></button>
+      <button type="button" class="act-no" data-act="skip">✕<span>不喝</span></button>
     </div>
   </div>
 
-  <div id="game-panel" class="panel hidden">
-    <div id="game-title">大话骰</div>
-    <div id="game-content"></div>
-    <div id="owner-game-controls" class="owner-controls hidden"></div>
+  <div id="modal" class="modal hidden">
+    <div class="modal-card">
+      <h3 id="modal-title"></h3>
+      <div id="modal-body"></div>
+      <button type="button" class="btn-gold" id="modal-close">知道了</button>
+    </div>
   </div>
 
   <div id="toast" class="toast hidden"></div>
   <div id="reconnect-overlay" class="overlay hidden">网络断开，重连中…</div>
-  <div id="drink-overlay" class="overlay hidden">🍻 干杯！</div>
 
   <script src="/socket.io/socket.io.js"></script>
   <script type="module" src="/js/table.js"></script>

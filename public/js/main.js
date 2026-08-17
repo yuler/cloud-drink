@@ -1,22 +1,10 @@
-const CHARACTERS = [
-  { id: 'fox', name: '小狐狸', color: '#f28b45' },
-  { id: 'cat', name: '小橘猫', color: '#f5a623' },
-  { id: 'bear', name: '棕熊', color: '#a9744f' },
-  { id: 'panda', name: '熊猫', color: '#5a5a5a' },
-  { id: 'rabbit', name: '兔子', color: '#e8e8e8' },
-  { id: 'frog', name: '青蛙', color: '#4caf50' },
-];
+import { BODIES, HAIRS, EYES, FACE_SHAPES, bodyOf } from '/js/engine/catalog.js';
 
-const FACES = [
-  { id: 'smile', name: '微笑', emoji: '😊' },
-  { id: 'cool', name: '酷', emoji: '😎' },
-  { id: 'derp', name: '呆萌', emoji: '😜' },
-];
-
-const ACCESSORIES = [
-  { id: 'none', name: '无', emoji: '' },
-  { id: 'cap', name: '帽子', emoji: '🧢' },
-  { id: 'glasses', name: '眼镜', emoji: '👓' },
+const STEPS = [
+  { key: 'body', title: '选择角色形象', items: BODIES, get: () => selectedCharacter, set: (id) => { selectedCharacter = id; } },
+  { key: 'hair', title: '选择发型', items: HAIRS, get: () => selectedHair, set: (id) => { selectedHair = id; } },
+  { key: 'eyes', title: '选择眼睛', items: EYES, get: () => selectedEyes, set: (id) => { selectedEyes = id; } },
+  { key: 'face', title: '选择脸型', items: FACE_SHAPES, get: () => selectedFace, set: (id) => { selectedFace = id; } },
 ];
 
 function getPlayerId() {
@@ -28,114 +16,138 @@ function getPlayerId() {
   return id;
 }
 
-let selectedCharacter = 'fox';
-let selectedFace = 'smile';
-let selectedAccessory = 'none';
+let selectedCharacter = 'rabbit';
+let selectedHair = 'short';
+let selectedEyes = 'smile';
+let selectedFace = 'round';
+let pendingJoinRoom = '';
+let stepIndex = 0;
 
-function colorOf(id) {
-  const c = CHARACTERS.find((x) => x.id === id);
-  return c ? c.color : '#888';
-}
-
-function renderPicker(container, items, selectedId, onSelect) {
-  container.innerHTML = '';
-  for (const it of items) {
-    const el = document.createElement('button');
-    el.type = 'button';
-    el.className = 'pick-item';
-    el.dataset.id = it.id;
-    el.title = it.name;
-    if (it.id === selectedId) el.classList.add('selected');
-    if (it.color) {
-      el.style.setProperty('--c', it.color);
-      el.classList.add('color-item');
-    } else {
-      el.textContent = it.emoji || it.name;
-      if (!it.emoji) el.classList.add('text-item');
-    }
-    el.addEventListener('click', () => {
-      onSelect(it.id);
-      renderPicker(container, items, it.id, onSelect);
-      renderPreview();
-    });
-    container.appendChild(el);
-  }
-}
-
-function renderPreview() {
-  const preview = document.getElementById('avatar-preview');
-  preview.style.setProperty('--c', colorOf(selectedCharacter));
-  const face = FACES.find((x) => x.id === selectedFace);
-  const acc = ACCESSORIES.find((x) => x.id === selectedAccessory);
-  preview.innerHTML = `<span class="face-emoji">${face ? face.emoji : ''}</span><span class="acc-emoji">${acc && acc.emoji ? acc.emoji : ''}</span>`;
-}
-
-function renderAllPickers() {
-  renderPicker(document.getElementById('color-picker'), CHARACTERS, selectedCharacter, (id) => { selectedCharacter = id; });
-  renderPicker(document.getElementById('face-picker'), FACES, selectedFace, (id) => { selectedFace = id; });
-  renderPicker(document.getElementById('accessory-picker'), ACCESSORIES, selectedAccessory, (id) => { selectedAccessory = id; });
-  renderPreview();
+function appearance() {
+  return {
+    characterId: selectedCharacter,
+    hair: selectedHair,
+    eyes: selectedEyes,
+    faceShape: selectedFace,
+    face: selectedEyes,
+    accessory: selectedHair === 'cap' ? 'cap' : 'none',
+  };
 }
 
 function showError(msg) {
-  document.getElementById('error').textContent = msg || '';
-}
-
-function saveRoom(roomId) {
-  sessionStorage.setItem('cloudDrink:roomId', roomId);
+  const el = document.getElementById('error');
+  if (el) el.textContent = msg || '';
 }
 
 function goToTable(roomId, ok) {
   if (!ok || !ok.ok) {
+    document.getElementById('create-screen').classList.add('hidden');
+    document.getElementById('login-screen').classList.remove('hidden');
+    document.querySelector('.login-hero')?.classList.remove('hidden');
     showError(ok && ok.error);
     return;
   }
-  saveRoom(roomId);
+  sessionStorage.setItem('cloudDrink:roomId', roomId);
   location.href = '/table.html';
 }
 
-function appearance() {
-  return { characterId: selectedCharacter, face: selectedFace, accessory: selectedAccessory };
+function paintProgress() {
+  const el = document.getElementById('create-progress');
+  el.innerHTML = STEPS.map((s, i) => {
+    const cls = i === stepIndex ? 'dot on' : (i < stepIndex ? 'dot done' : 'dot');
+    return `<span class="${cls}" data-step="${i}">${i + 1}</span><span class="dot-label">${s.title.replace('选择', '')}</span>`;
+  }).join('');
 }
 
-function readRoomFromUrl() {
-  const params = new URLSearchParams(location.search);
-  return (params.get('room') || '').toUpperCase();
+function paintStep() {
+  const step = STEPS[stepIndex];
+  document.getElementById('create-step-title').textContent = `${stepIndex + 1}/${STEPS.length}  ${step.title}`;
+  const root = document.getElementById('create-cols');
+  root.innerHTML = '';
+  const selectedId = step.get();
+  for (const it of step.items) {
+    const el = document.createElement('button');
+    el.type = 'button';
+    el.className = 'pick-thumb' + (it.id === selectedId ? ' selected' : '');
+    el.innerHTML = `<img src="${it.img || it.thumb}" alt="${it.name}" /><span>${it.name}</span>`;
+    el.addEventListener('click', () => {
+      step.set(it.id);
+      paintStep();
+      syncPreview();
+    });
+    root.appendChild(el);
+  }
+  paintProgress();
+  const back = document.getElementById('btn-back');
+  const next = document.getElementById('btn-complete');
+  back.disabled = stepIndex === 0;
+  next.textContent = stepIndex === STEPS.length - 1 ? '完成创建' : '下一步';
+}
+
+function syncPreview() {
+  document.getElementById('create-hero').src = bodyOf(selectedCharacter).img;
+}
+
+function showCreate() {
+  stepIndex = 0;
+  document.getElementById('login-screen').classList.add('hidden');
+  document.getElementById('create-screen').classList.remove('hidden');
+  document.querySelector('.login-hero')?.classList.add('hidden');
+  paintStep();
+  syncPreview();
+}
+
+function goCreate(joinRoom) {
+  const nickname = document.getElementById('nickname').value.trim();
+  if (!nickname) return showError('请输入昵称');
+  pendingJoinRoom = joinRoom || '';
+  showError('');
+  showCreate();
+}
+
+function completeCreate() {
+  const nickname = document.getElementById('nickname').value.trim();
+  if (!nickname) return showError('请输入昵称');
+  const socket = io();
+  const payload = { playerId: getPlayerId(), nickname, ...appearance() };
+  if (pendingJoinRoom) {
+    socket.emit('room:join', { roomId: pendingJoinRoom, ...payload }, (res) => {
+      socket.close();
+      goToTable(pendingJoinRoom, res);
+    });
+    return;
+  }
+  socket.emit('room:create', payload, (res) => {
+    socket.close();
+    goToTable(res.roomId, res);
+  });
 }
 
 function main() {
-  renderAllPickers();
-  const nicknameInput = document.getElementById('nickname');
-  const roomCodeInput = document.getElementById('room-code');
-
-  const urlRoom = readRoomFromUrl();
+  const urlRoom = (new URLSearchParams(location.search).get('room') || '').toUpperCase();
   if (urlRoom) {
-    roomCodeInput.value = urlRoom;
-    nicknameInput.focus();
+    document.getElementById('room-code').value = urlRoom;
+    document.getElementById('nickname').focus();
   }
-
-  document.getElementById('btn-create').addEventListener('click', () => {
-    const nickname = nicknameInput.value.trim();
-    if (!nickname) return showError('请输入昵称');
-    showError('');
-    const socket = io();
-    socket.emit('room:create', { playerId: getPlayerId(), nickname, ...appearance() }, (res) => {
-      socket.close();
-      goToTable(res.roomId, res);
-    });
-  });
-
-  document.getElementById('btn-join').addEventListener('click', () => {
-    const nickname = nicknameInput.value.trim();
-    const roomId = roomCodeInput.value.trim().toUpperCase();
-    if (!nickname) return showError('请输入昵称');
+  document.getElementById('btn-next').addEventListener('click', () => goCreate(''));
+  document.getElementById('btn-join-next').addEventListener('click', () => {
+    const roomId = document.getElementById('room-code').value.trim().toUpperCase();
     if (!roomId) return showError('请输入房号');
-    showError('');
-    const socket = io();
-    socket.emit('room:join', { roomId, playerId: getPlayerId(), nickname, ...appearance() }, (res) => {
-      socket.close();
-      goToTable(roomId, res);
-    });
+    goCreate(roomId);
+  });
+  document.getElementById('btn-back').addEventListener('click', () => {
+    if (stepIndex > 0) {
+      stepIndex -= 1;
+      paintStep();
+    }
+  });
+  document.getElementById('btn-complete').addEventListener('click', () => {
+    if (stepIndex < STEPS.length - 1) {
+      stepIndex += 1;
+      paintStep();
+      return;
+    }
+    completeCreate();
   });
 }
 

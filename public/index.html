@@ -2,41 +2,48 @@
 <html lang="zh-CN">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
   <title>云喝酒</title>
   <link rel="stylesheet" href="/css/style.css" />
 </head>
 <body class="landing-body">
-  <main class="landing">
-    <h1 class="logo">🍻 云喝酒</h1>
-    <p class="tagline">异地好友，线上干杯</p>
+  <div class="photo-bg" style="background-image:url('/assets/bg-login.png')"></div>
+  <img class="login-hero" src="/assets/char-rabbit.png" alt="" />
+  <p class="rotate-hint">请横屏体验</p>
 
-    <section class="panel">
-      <label>你的昵称</label>
-      <input id="nickname" type="text" maxlength="12" placeholder="输入昵称" />
-
-      <label>捏个脸</label>
-      <div class="avatar-preview" id="avatar-preview"></div>
-
-      <label>颜色</label>
-      <div id="color-picker" class="picker-row"></div>
-
-      <label>表情</label>
-      <div id="face-picker" class="picker-row"></div>
-
-      <label>配饰</label>
-      <div id="accessory-picker" class="picker-row"></div>
-
-      <div class="actions">
-        <button id="btn-create" class="primary">创建房间</button>
-        <div class="divider">或</div>
-        <input id="room-code" type="text" maxlength="4" placeholder="输入 4 位房号" autocomplete="off" />
-        <button id="btn-join">加入房间</button>
+  <main class="stage">
+    <section id="login-screen" class="screen login-screen">
+      <div class="login-center">
+        <h1 class="logo">云喝酒</h1>
+        <p class="tagline">和好友一起，边玩游戏边喝酒</p>
+        <input id="nickname" type="text" maxlength="12" placeholder="请输入你的昵称" />
+        <button id="btn-next" class="btn-gold" type="button">开始游戏</button>
+        <div class="join-row">
+          <input id="room-code" type="text" maxlength="4" placeholder="输入 4 位房号" autocomplete="off" />
+          <button id="btn-join-next" class="btn-ghost" type="button">加入房间</button>
+        </div>
+        <p id="error" class="error"></p>
       </div>
-      <p id="error" class="error"></p>
+    </section>
+
+    <section id="create-screen" class="screen create-screen hidden">
+      <div class="photo-bg create-bg" style="background-image:url('/assets/bg-create.png')"></div>
+      <div class="create-layout">
+        <div class="create-progress" id="create-progress"></div>
+        <div class="create-hero-wrap">
+          <img id="create-hero" class="create-hero" src="/assets/char-rabbit.png" alt="角色预览" />
+        </div>
+        <h3 class="create-step-title" id="create-step-title">选择角色形象</h3>
+        <div class="create-step-grid" id="create-cols"></div>
+        <div class="create-bar">
+          <button id="btn-back" class="btn-ghost" type="button">上一步</button>
+          <button id="btn-complete" class="btn-gold" type="button">下一步</button>
+        </div>
+      </div>
     </section>
   </main>
+
   <script src="/socket.io/socket.io.js"></script>
-  <script src="/js/main.js"></script>
+  <script type="module" src="/js/main.js"></script>
 </body>
 </html>

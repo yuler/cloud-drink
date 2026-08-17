@@ -1,4 +1,13 @@
 let ctx = null;
+let muted = false;
+
+export function setMuted(v) {
+  muted = !!v;
+}
+
+export function isMuted() {
+  return muted;
+}
 
 function audioCtx() {
   if (!ctx) ctx = new (window.AudioContext || window.webkitAudioContext)();
@@ -7,6 +16,7 @@ function audioCtx() {
 }
 
 function tone(freq, delay, duration, { type = 'sine', gain = 0.2, freqEnd } = {}) {
+  if (muted) return;
   const c = audioCtx();
   const t0 = c.currentTime + delay;
   const osc = c.createOscillator();
@@ -28,9 +38,21 @@ export function playClink() {
   tone(700, 0.05, 0.2, { type: 'triangle', gain: 0.1 });
 }
 
+export function playRattle() {
+  for (let i = 0; i < 8; i++) {
+    tone(180 + Math.random() * 220, i * 0.05, 0.06, { type: 'square', gain: 0.07 });
+  }
+}
+
+export function playThud() {
+  tone(90, 0, 0.12, { type: 'sine', gain: 0.28, freqEnd: 50 });
+  tone(240, 0.02, 0.08, { type: 'triangle', gain: 0.1 });
+}
+
 export function playGulp() {
-  tone(420, 0, 0.09, { type: 'sine', gain: 0.3, freqEnd: 220 });
-  tone(420, 0.16, 0.09, { type: 'sine', gain: 0.3, freqEnd: 220 });
+  tone(420, 0, 0.12, { type: 'sine', gain: 0.32, freqEnd: 200 });
+  tone(380, 0.18, 0.12, { type: 'sine', gain: 0.28, freqEnd: 180 });
+  tone(340, 0.36, 0.16, { type: 'sine', gain: 0.24, freqEnd: 140 });
 }
 
 export function playCheer() {

@@ -13,13 +13,16 @@ function randomRoomCode(existingCodes) {
   return code;
 }
 
-function makePlayer(id, nickname, characterId, face, accessory) {
+function makePlayer(id, nickname, characterId, face, accessory, extra = {}) {
   return {
     id,
     nickname,
     characterId,
-    face: face || 'smile',
-    accessory: accessory || 'none',
+    face: face || extra.eyes || 'smile',
+    accessory: accessory || extra.hair || 'none',
+    hair: extra.hair || accessory || 'short',
+    eyes: extra.eyes || face || 'smile',
+    faceShape: extra.faceShape || 'round',
     isOwner: false,
     isOnline: true,
     drinkCount: 0,
@@ -50,9 +53,9 @@ class RoomManager {
     this.playerRoom = new Map();
   }
 
-  createRoom({ playerId, nickname, characterId, face, accessory }) {
+  createRoom({ playerId, nickname, characterId, face, accessory, hair, eyes, faceShape }) {
     const roomId = randomRoomCode(this.rooms);
-    const player = makePlayer(playerId, nickname, characterId, face, accessory);
+    const player = makePlayer(playerId, nickname, characterId, face, accessory, { hair, eyes, faceShape });
     player.isOwner = true;
     player.seat = 0;
     const room = new Room(roomId, player);
@@ -61,12 +64,12 @@ class RoomManager {
     return { room, player };
   }
 
-  joinRoom({ roomId, playerId, nickname, characterId, face, accessory }) {
+  joinRoom({ roomId, playerId, nickname, characterId, face, accessory, hair, eyes, faceShape }) {
     const room = this.rooms.get(roomId);
     if (!room) throw err('房间不存在', 'ROOM_NOT_FOUND');
     if (this.playerRoom.has(playerId)) throw err('你已经在别的房间了', 'ALREADY_IN_ROOM');
     if (room.players.length >= MAX_PLAYERS) throw err('房间已满', 'ROOM_FULL');
-    const player = makePlayer(playerId, nickname, characterId, face, accessory);
+    const player = makePlayer(playerId, nickname, characterId, face, accessory, { hair, eyes, faceShape });
     player.seat = room.players.length;
     room.players.push(player);
     this.playerRoom.set(playerId, roomId);

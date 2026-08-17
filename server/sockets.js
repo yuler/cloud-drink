@@ -11,6 +11,9 @@ function serializeRoom(room) {
       characterId: p.characterId,
       face: p.face,
       accessory: p.accessory,
+      hair: p.hair,
+      eyes: p.eyes,
+      faceShape: p.faceShape,
       isOwner: p.isOwner,
       isOnline: p.isOnline,
       drinkCount: p.drinkCount,
@@ -44,9 +47,9 @@ function maybeDrink(io, room) {
 
 function attachSocketHandlers(io, rooms) {
   io.on('connection', (socket) => {
-    socket.on('room:create', ({ playerId, nickname, characterId, face, accessory }, ack) => {
+    socket.on('room:create', ({ playerId, nickname, characterId, face, accessory, hair, eyes, faceShape }, ack) => {
       try {
-        const { room } = rooms.createRoom({ playerId, nickname, characterId, face, accessory });
+        const { room } = rooms.createRoom({ playerId, nickname, characterId, face, accessory, hair, eyes, faceShape });
         socket.data.playerId = playerId;
         socket.data.roomId = room.id;
         socket.join(room.id);
@@ -58,9 +61,9 @@ function attachSocketHandlers(io, rooms) {
       }
     });
 
-    socket.on('room:join', ({ roomId, playerId, nickname, characterId, face, accessory }, ack) => {
+    socket.on('room:join', ({ roomId, playerId, nickname, characterId, face, accessory, hair, eyes, faceShape }, ack) => {
       try {
-        const { room } = rooms.joinRoom({ roomId, playerId, nickname, characterId, face, accessory });
+        const { room } = rooms.joinRoom({ roomId, playerId, nickname, characterId, face, accessory, hair, eyes, faceShape });
         socket.data.playerId = playerId;
         socket.data.roomId = room.id;
         socket.join(room.id);
