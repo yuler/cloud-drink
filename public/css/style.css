@@ -49,15 +49,31 @@ button { touch-action: manipulation; font-family: inherit; }
   min-height: 100dvh; display: flex; align-items: center; justify-content: center;
 }
 .login-center {
-  width: min(420px, 86vw); display: flex; flex-direction: column; align-items: center; gap: 12px;
+  width: min(400px, 88vw); display: flex; flex-direction: column; align-items: center; gap: 14px;
   text-align: center;
-  background: rgba(16, 10, 8, 0.42);
+  background: rgba(16, 10, 8, 0.52);
   border: 1px solid var(--line);
-  border-radius: 24px;
-  padding: 28px 22px;
-  backdrop-filter: blur(8px);
+  border-radius: 28px;
+  padding: 32px 24px 24px;
+  backdrop-filter: blur(12px);
+  box-shadow: var(--shadow);
 }
 .login-center input, .login-center button { width: 100%; }
+.login-kicker {
+  font-size: 12px; letter-spacing: 0.28em; text-transform: uppercase;
+  color: var(--gold-text); font-weight: 700;
+}
+.room-chip {
+  display: inline-flex; align-items: center; gap: 8px;
+  padding: 8px 16px; border-radius: 999px;
+  background: rgba(255, 184, 0, 0.12);
+  border: 1px solid var(--line);
+  color: var(--muted); font-size: 14px;
+}
+.room-chip b {
+  color: var(--gold-text); font-size: 18px; letter-spacing: 0.18em; font-weight: 800;
+}
+.login-center.invite-mode .tagline { margin-bottom: 0; }
 
 .landing-body { overflow: hidden; height: 100dvh; }
 
@@ -444,13 +460,19 @@ input:focus, select:focus { outline: none; border-color: var(--gold); }
   z-index: 12; display: flex; flex-direction: column; align-items: center; gap: 10px;
 }
 .react-row, .bid-panel {
-  display: flex; gap: 10px; align-items: center; flex-wrap: wrap; justify-content: center;
+  display: flex; gap: 8px; align-items: center; flex-wrap: nowrap; justify-content: center;
 }
-.react-row button { min-width: 120px; }
+.react-row button { min-width: 100px; padding: 12px 16px; }
 .bid-panel .num {
-  width: 72px; border-radius: 14px; text-align: center;
+  width: 64px; min-width: 64px; border-radius: 14px; text-align: center; padding: 12px 8px;
 }
-.bid-panel select.num { width: 88px; }
+.bid-panel select.num { width: 80px; min-width: 80px; }
+.bid-panel .btn-gold { min-width: 88px; padding: 12px 18px; }
+.turn-wait {
+  color: var(--gold-text); font-weight: 700; font-size: 15px;
+  background: var(--panel); border: 1px solid var(--line);
+  border-radius: 999px; padding: 10px 16px;
+}
 
 .walk-pad {
   position: fixed; right: 14px; bottom: calc(18px + env(safe-area-inset-bottom));

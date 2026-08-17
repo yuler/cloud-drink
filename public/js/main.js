@@ -81,7 +81,11 @@ function paintStep() {
   const back = document.getElementById('btn-back');
   const next = document.getElementById('btn-complete');
   back.disabled = stepIndex === 0;
-  next.textContent = stepIndex === STEPS.length - 1 ? '完成创建' : '下一步';
+  if (stepIndex === STEPS.length - 1) {
+    next.textContent = pendingJoinRoom ? '加入房间' : '创建房间';
+  } else {
+    next.textContent = '下一步';
+  }
 }
 
 function syncPreview() {
@@ -97,10 +101,9 @@ function showCreate() {
   syncPreview();
 }
 
-function goCreate(joinRoom) {
+function goCreate() {
   const nickname = document.getElementById('nickname').value.trim();
   if (!nickname) return showError('请输入昵称');
-  pendingJoinRoom = joinRoom || '';
   showError('');
   showCreate();
 }
@@ -123,18 +126,33 @@ function completeCreate() {
   });
 }
 
+function applyLoginMode(urlRoom) {
+  const card = document.querySelector('.login-center');
+  const enter = document.getElementById('btn-enter');
+  const chip = document.getElementById('join-room-chip');
+  if (urlRoom) {
+    pendingJoinRoom = urlRoom;
+    card.classList.add('invite-mode');
+    document.getElementById('login-kicker').textContent = '好友邀请你入座';
+    document.getElementById('login-tagline').textContent = '填个昵称，进同一桌喝一杯';
+    document.getElementById('join-room-label').textContent = urlRoom;
+    chip.classList.remove('hidden');
+    enter.textContent = '加入房间';
+  } else {
+    pendingJoinRoom = '';
+    card.classList.remove('invite-mode');
+    document.getElementById('login-kicker').textContent = '开一桌新局';
+    document.getElementById('login-tagline').textContent = '和好友一起，边玩游戏边喝酒';
+    chip.classList.add('hidden');
+    enter.textContent = '创建房间';
+  }
+}
+
 function main() {
   const urlRoom = (new URLSearchParams(location.search).get('room') || '').toUpperCase();
-  if (urlRoom) {
-    document.getElementById('room-code').value = urlRoom;
-    document.getElementById('nickname').focus();
-  }
-  document.getElementById('btn-next').addEventListener('click', () => goCreate(''));
-  document.getElementById('btn-join-next').addEventListener('click', () => {
-    const roomId = document.getElementById('room-code').value.trim().toUpperCase();
-    if (!roomId) return showError('请输入房号');
-    goCreate(roomId);
-  });
+  applyLoginMode(urlRoom);
+  document.getElementById('nickname').focus();
+  document.getElementById('btn-enter').addEventListener('click', () => goCreate());
   document.getElementById('btn-back').addEventListener('click', () => {
     if (stepIndex > 0) {
       stepIndex -= 1;

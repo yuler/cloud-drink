@@ -14,14 +14,12 @@
   <main class="stage">
     <section id="login-screen" class="screen login-screen">
       <div class="login-center">
+        <p class="login-kicker" id="login-kicker">开一桌新局</p>
         <h1 class="logo">云喝酒</h1>
-        <p class="tagline">和好友一起，边玩游戏边喝酒</p>
-        <input id="nickname" type="text" maxlength="12" placeholder="请输入你的昵称" />
-        <button id="btn-next" class="btn-gold" type="button">开始游戏</button>
-        <div class="join-row">
-          <input id="room-code" type="text" maxlength="4" placeholder="输入 4 位房号" autocomplete="off" />
-          <button id="btn-join-next" class="btn-ghost" type="button">加入房间</button>
-        </div>
+        <p class="tagline" id="login-tagline">和好友一起，边玩游戏边喝酒</p>
+        <p id="join-room-chip" class="room-chip hidden">房间 <b id="join-room-label"></b></p>
+        <input id="nickname" type="text" maxlength="12" placeholder="请输入你的昵称" autocomplete="nickname" />
+        <button id="btn-enter" class="btn-gold" type="button">创建房间</button>
         <p id="error" class="error"></p>
       </div>
     </section>

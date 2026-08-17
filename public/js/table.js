@@ -241,8 +241,14 @@ function renderLiar() {
 
   if (gameState.phase === 'betting') {
     const myTurn = gameState.turnPlayerId === playerId;
-    if (!myTurn) return;
     el.gameActions.classList.remove('hidden');
+    if (!myTurn) {
+      const wait = document.createElement('p');
+      wait.className = 'turn-wait';
+      wait.textContent = `等待 ${nameOf(gameState.turnPlayerId)} 叫数…`;
+      el.gameActions.appendChild(wait);
+      return;
+    }
     if (liarMode === 'react' && gameState.bids.length > 0) {
       const row = document.createElement('div');
       row.className = 'react-row';
@@ -291,7 +297,7 @@ function buildBidPanel() {
   const last = gameState.bids[gameState.bids.length - 1];
   if (last) f.value = String(last.face);
   const btnCall = document.createElement('button');
-  btnCall.className = 'btn-gold btn-wide';
+  btnCall.className = 'btn-gold';
   btnCall.textContent = '叫数';
   btnCall.addEventListener('click', () => {
     const bid = { quantity: parseInt(q.value, 10) || 1, face: parseInt(f.value, 10) };
